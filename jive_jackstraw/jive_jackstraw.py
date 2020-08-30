@@ -23,10 +23,10 @@ class JIVEJackstraw:
             raise ValueError("Only numpy arrays are supported at this time.")
 
         d = datablock.shape[1]
-        if bonferroni:
-            alpha = alpha/d
-
         joint_rank = cns.shape[1]
+
+        if bonferroni:
+            alpha = alpha/(d*joint_rank)
 
         for joint_comp_number in range(joint_rank):
             joint_comp_scores = cns[:, joint_comp_number]

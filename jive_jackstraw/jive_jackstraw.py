@@ -13,10 +13,17 @@ class JIVEJackstraw:
     def fit(self, datablock, cns, alpha=.05, bonferroni=True):
         """Fit the JIVEJackstraw object.
 
-        datablock: (n x d) numpy array of one data block
-        cns: (n x joint_rank) numpy array of common normalized scores
-        alpha: the desired level of the test
-        bonferroni: whether to use Bonferroni correction to ensure the level is < alpha
+        Parameters
+        ----------
+        datablock : (n x d) numpy array
+                    Data block of interest
+        cns : (n x joint_rank) numpy array
+              Common normalized scores from a JIVE analysis
+        alpha : numeric
+                The desired level of the test
+        bonferroni : boolean
+                     Whether to use Bonferroni correction to ensure the total
+                     level does not exceed alpha
         """
 
         if not (isinstance(datablock, np.ndarray) and isinstance(cns, np.ndarray)):
@@ -40,9 +47,16 @@ class JIVEJackstraw:
 
 @numba.njit
 def OLS_F_stat(y, x):
-    """High performance simple linear regression (with intercept).
-    260x faster than statsmodels.OLS, and 20x faster than using
-    the non-jitted version.
+    """Returns the F statistic for y ~ x + 1 (i.e. an intercept is added).
+    Much faster than statsmodels.OLS, but speedup from numba is only apparent
+    for n < 1000.
+
+    Parameters
+    ----------
+    y : 1-D numpy array
+        response vector
+    x : 1-D numpy array
+        predictor vector
     """
     n = len(x)
     ybar = np.mean(y)
@@ -63,6 +77,17 @@ def dropnan(arr):
     return arr[~np.isnan(arr)]
 
 def compute_p_values(observed_f_stats, null_f_stats):
+    """Compute empirical p-values from the observed F statistics and
+    their corresponding null statistics.
+
+    Parameters
+    ----------
+    observed_f_stats : length d numpy array
+                       observed F statistics, one for each feature
+                       in the datablock
+    null_f_stats : (d, 10) array
+                   null F statistics, 10 for each original feature.
+    """
     p_values = []
     for i, f_obs in enumerate(observed_f_stats):
         f_nulls = dropnan(null_f_stats[i, :])
@@ -72,7 +97,15 @@ def compute_p_values(observed_f_stats, null_f_stats):
 
 @numba.njit
 def generate_null_f_stats(random_features, joint_comp_scores):
-    "Generate null f stats for 10 random features without replacement"
+    """Generate null f stats for 10 random features without replacement
+
+    Parameters
+    ----------
+    random_features : (10, n) numpy array
+                      a 10-feature subset of the datablock of interest, features as rows
+    joint_comp_scores : 1-D numpy array
+                        Array of scores for a single joint component
+    """
     null_f_stats = []
     for feature in random_features:
         # if the feature is constant, set F = nan so that it is left out
@@ -87,7 +120,19 @@ def generate_null_f_stats(random_features, joint_comp_scores):
     return null_f_stats
 
 def jive_jackstraw(datablock_t, joint_comp_scores, alpha):
-    "Note, works on TRANSPOSED data, and only numpy arrays"
+    """Internal jackstraw function. Note: users should use the .fit()
+    method of the JIVEJackstraw class instead of this function.
+
+    Parameters
+    ----------
+    datablock_t : numpy array
+                  datablock for which to compute loadings, transposed so that
+                  columns are observations
+    joint_comp_scores : 1-D numpy array
+                        Array of scores for a single joint component
+    alpha : numeric
+            the desired level of each test
+    """
     d = datablock_t.shape[0]
 
     observed_f_stats = []

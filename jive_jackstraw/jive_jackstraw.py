@@ -90,8 +90,12 @@ def compute_p_values(observed_f_stats, null_f_stats):
     """
     p_values = []
     for i, f_obs in enumerate(observed_f_stats):
-        f_nulls = dropnan(null_f_stats[i, :])
-        p = np.mean(f_obs < f_nulls)
+        # if a feat is constant, the F is nan so we set empircal p-val = 1
+        if np.isnan(f_obs):
+            p = 1
+        else:
+            f_nulls = dropnan(null_f_stats[i, :])
+            p = np.mean(f_obs < f_nulls)
         p_values.append(p)
     return np.array(p_values)
 
@@ -137,9 +141,9 @@ def jive_jackstraw(datablock_t, joint_comp_scores, alpha):
 
     observed_f_stats = []
     for feature in datablock_t:  # rows are features
-        # if the feature is constant, set F = -1 to make the empirical p-value 1.
+        # if the feature is constant, set F = nan
         if np.var(feature) == 0:
-            observed_f_stats.append(-1)
+            observed_f_stats.append(np.nan)
         else:
             f = OLS_F_stat(feature, joint_comp_scores)
             observed_f_stats.append(f)
